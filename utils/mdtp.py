@@ -231,6 +231,8 @@ class MyDataset_mmsm(Dataset):
 #     else:
 #         return torch.tensor(0)
 
+
+
 def mae(preds, labels, mask):
     if torch.sum(mask) != 0:
         avg_mae = torch.mean(torch.abs(labels[mask] - preds[mask]))
@@ -301,11 +303,11 @@ def mape_weight(preds, labels, mask, a=1, r=1):
     
     if torch.sum(mask) != 0:
         zero_positions = (labels == 0)
-        mask = torch.logical_and(mask, ~zero_positions)  # 过滤掉 labels 为 0 的位置
+        mask = torch.logical_and(mask, ~zero_positions)  
         abs_diff = torch.abs(labels - preds)
-        relative_diff = abs_diff / torch.clamp(labels, min=1e-8)  # 防止除以 0
-        mape_per_step = torch.sum(relative_diff * mask, dim=(0, 2)) / torch.sum(mask, dim=(0, 2))  # 每步的 MAPE
-        weighted_mape = mape_per_step * weights  # 加权后的 MAPE
+        relative_diff = abs_diff / torch.clamp(labels, min=1e-8)  
+        mape_per_step = torch.sum(relative_diff * mask, dim=(0, 2)) / torch.sum(mask, dim=(0, 2)) 
+        weighted_mape = mape_per_step * weights  
         avg_mape = torch.sum(weighted_mape) / torch.sum(weights)
         return avg_mape
     else:

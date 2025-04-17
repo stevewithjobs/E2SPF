@@ -44,8 +44,7 @@ parser.add_argument('--pad', type=bool, default=False, help='whether padding wit
 parser.add_argument('--bike_base_path', type=str, default='./data/bike', help='bike data path')
 parser.add_argument('--taxi_base_path', type=str, default='./data/taxi', help='taxi data path')
 parser.add_argument('--seed', type=int, default=99, help='random seed')
-# parser.add_argument('--save', type=str, default='/home/haitao/data/web_host_network/mdtp_moe/whnbest/best_model.pth', help='save path')
-parser.add_argument('--save', type=str, default='/home_nfs/haitao/data/web_host_network/mdtp_moe/log_2024-12-22_22-54-12/best_model.pth', help='save path')
+parser.add_argument('--save', type=str, default='./best_model.pth', help='save path')
 parser.add_argument('--rlsave', type=str, default='./mmsm_model/', help='save path')
 parser.add_argument('--smoe_start_epoch', type=int, default=99, help='smoe start epoch')
 parser.add_argument('--gpus', type=str, default='4', help='gpu')
@@ -246,30 +245,6 @@ class BanditNet(nn.Module):
         self.model_list = model_list
 
         self.fc = nn.Linear(num_arms, num_arms) 
-
-    # def forward(self, data, cache, epsilon):
-        
-    #     lstm_input = torch.cat((data[0], data[2]), dim=-1)
-    #     lstm_input = torch.sum(lstm_input, dim=-1)
-    #     lstm_input = lstm_input[:, -1, :].reshape(self. batch_size, -1)
-    #     lstm_out, self.hidden_state = self.lstm(lstm_input, self.hidden_state)
-    #     decisoin_q = torch.mean(self.decide(lstm_out), dim=0)
-    #     action_probs = self.softmax(decisoin_q)
-
-    #     action = torch.argmax(action_probs)
-
-    #     self.hidden_state = (self.hidden_state[0].detach(), self.hidden_state[1].detach())
-
-    #     with torch.no_grad():
-    #         bike_start, bike_end, taxi_start, taxi_end = self.model_list[action](data, (action+1)*4)
-    #     new_predict = torch.stack((bike_start, bike_end, taxi_start, taxi_end), dim=-1)
-    #     updated_cache = torch.cat((new_predict.unsqueeze(1), cache[:, -3: :, : ,:]), dim=1)
-
-    #     with torch.no_grad():
-    #         bike_start, bike_end, taxi_start, taxi_end = self.model_list[-1](data, 24)
-    #     st_predict = torch.stack((bike_start, bike_end, taxi_start, taxi_end), dim=-1)
-
-    #     return self.weight[action], new_predict[:, 0, :, :], st_predict[:, 0, :, :], decisoin_q, updated_cache
 
     def forward(self, data, cache, epsilon):
         

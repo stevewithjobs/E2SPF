@@ -547,21 +547,14 @@ class Model_withoutmoe(nn.Module):
 
 
         for i in range(self.layer):
-            # 定义 CUDA 流
+    
             start_time = time.time()
-
-            # 在不同流中并行计算 experts_x 和 experts_y
             experts_x = self.model_x[i](x_out)
             experts_y = self.model_y[i](y_out)
 
-            # 同步确保两个流的计算都完成
-            # torch.cuda.synchronize()
-
-            # 继续进行 layer_norm 和加法操作
             x_out = self.layer_norm_x(experts_x)
             y_out = self.layer_norm_y(experts_y)
 
-            # 打印执行时间
             total_time = time.time() - start_time
             print(f"Layer {i} execution time: {total_time:.6f} sec")
 
