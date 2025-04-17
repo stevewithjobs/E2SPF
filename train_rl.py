@@ -29,7 +29,7 @@ import torch.distributions as distributions
 
 parser = argparse.ArgumentParser()
 # parser.add_argument('--device', type=str, default='cuda:4', help='GPU setting')
-parser.add_argument('--batch_size', type=int, default=16, help='batch size')
+parser.add_argument('--batch_size', type=int, default=1, help='batch size')
 parser.add_argument('--window_size', type=int, default=24, help='window size')
 parser.add_argument('--pred_size', type=int, default=4, help='pred size')
 parser.add_argument('--node_num', type=int, default=231, help='number of node to predict')
@@ -57,6 +57,25 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
  
 def custom_collate_fn(batch):
     return batch
+
+class RolloutBuffer:
+    def __init__(self):
+        self.states = []
+        self.actions = []
+        self.log_probs = []
+        self.rewards = []
+
+    def store(self, state, action, log_prob, reward):
+        self.states.append(state)
+        self.actions.append(action)
+        self.log_probs.append(log_prob)
+        self.rewards.append(reward)
+
+    def clear(self):
+        self.states.clear()
+        self.actions.clear()
+        self.log_probs.clear()
+        self.rewards.clear()
 
 class MultiArmedBanditEnv:
     def __init__(self, num_arms, batch_size, pred_size, data_type='val'):
@@ -169,7 +188,6 @@ class MultiArmedBanditEnv:
         self._updatecache(new_cache)
         cache = self._getcache()
 
-        # 获取data
         data = self._getdata()
         return data, cache
     
@@ -229,6 +247,30 @@ class BanditNet(nn.Module):
 
         self.fc = nn.Linear(num_arms, num_arms) 
 
+    # def forward(self, data, cache, epsilon):
+        
+    #     lstm_input = torch.cat((data[0], data[2]), dim=-1)
+    #     lstm_input = torch.sum(lstm_input, dim=-1)
+    #     lstm_input = lstm_input[:, -1, :].reshape(self. batch_size, -1)
+    #     lstm_out, self.hidden_state = self.lstm(lstm_input, self.hidden_state)
+    #     decisoin_q = torch.mean(self.decide(lstm_out), dim=0)
+    #     action_probs = self.softmax(decisoin_q)
+
+    #     action = torch.argmax(action_probs)
+
+    #     self.hidden_state = (self.hidden_state[0].detach(), self.hidden_state[1].detach())
+
+    #     with torch.no_grad():
+    #         bike_start, bike_end, taxi_start, taxi_end = self.model_list[action](data, (action+1)*4)
+    #     new_predict = torch.stack((bike_start, bike_end, taxi_start, taxi_end), dim=-1)
+    #     updated_cache = torch.cat((new_predict.unsqueeze(1), cache[:, -3: :, : ,:]), dim=1)
+
+    #     with torch.no_grad():
+    #         bike_start, bike_end, taxi_start, taxi_end = self.model_list[-1](data, 24)
+    #     st_predict = torch.stack((bike_start, bike_end, taxi_start, taxi_end), dim=-1)
+
+    #     return self.weight[action], new_predict[:, 0, :, :], st_predict[:, 0, :, :], decisoin_q, updated_cache
+
     def forward(self, data, cache, epsilon):
         
         lstm_input = torch.cat((data[0], data[2]), dim=-1)
@@ -237,8 +279,8 @@ class BanditNet(nn.Module):
         lstm_out, self.hidden_state = self.lstm(lstm_input, self.hidden_state)
         decisoin_q = torch.mean(self.decide(lstm_out), dim=0)
         action_probs = self.softmax(decisoin_q)
-
-        action = torch.argmax(action_probs)
+        dist = distributions.Categorical(action_probs)
+        action = dist.sample()
 
         self.hidden_state = (self.hidden_state[0].detach(), self.hidden_state[1].detach())
 
@@ -251,7 +293,7 @@ class BanditNet(nn.Module):
             bike_start, bike_end, taxi_start, taxi_end = self.model_list[-1](data, 24)
         st_predict = torch.stack((bike_start, bike_end, taxi_start, taxi_end), dim=-1)
 
-        return self.weight[action], new_predict[:, 0, :, :], st_predict[:, 0, :, :], decisoin_q, updated_cache
+        return self.weight[action], new_predict[:, 0, :, :], st_predict[:, 0, :, :], decisoin_q, updated_cache, action, dist.log_prob(action)
 
     def forward_test(self, data, cache):
         t1 = time.time()
@@ -342,13 +384,17 @@ if __name__ == '__main__':
     epsilon_start = 1.0 
     epsilon_end = 0.01   
     epsilon_decay = 0.995  
+    buffer = RolloutBuffer()
     for episode in range(num_episodes):
         epsilon = max(epsilon_end, epsilon_start * (epsilon_decay ** episode))
         data, cache = env.reset()
         total_loss = 0
         t = 0
+        step_count = 0
         while data != None:
-            weight, new_predict, st_predict, decisoin_q, new_cache = bandit_Net(data, cache, epsilon)  
+            # weight, new_predict, st_predict, decisoin_q, new_cache = bandit_Net(data, cache, epsilon)  
+            weight, new_predict, st_predict, decisoin_q, new_cache, action, log_prob = bandit_Net(data, cache, epsilon)
+
             # if random.random() < epsilon: 
             #     decision = torch.randint(0, decisoin_q.size(0), (1,))  
             # else:
@@ -373,13 +419,27 @@ if __name__ == '__main__':
             
             reward = reward_m + 0.1 * reward_w
 
-            optimizer.zero_grad()
+            # optimizer.zero_grad()
 
-            loss = -torch.log(decisoin_q) * reward
+            # loss = -torch.log(decisoin_q) * reward
 
-            loss.backward()  
-            optimizer.step()  
-            total_loss += loss.item()
+            # loss.backward()  
+            # optimizer.step()  
+            # total_loss += loss.item()
+            buffer.store(None, action, log_prob, reward)
+
+            step_count += 1
+
+            if step_count % 16 == 0: 
+                optimizer.zero_grad()
+                loss = 0
+                rewards = torch.tensor(buffer.rewards, dtype=torch.float32, device=device)
+                log_probs = torch.stack(buffer.log_probs)
+                loss = -(log_probs * rewards).mean()
+                loss.backward()
+                optimizer.step()
+                total_loss += loss.item()
+                buffer.clear()
 
         print(f"Loss: {total_loss:.4f}")
         print(f"Episode {episode + 1}/{num_episodes}")

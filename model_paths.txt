@@ -1,6 +1,0 @@
-/home/haitao/data/web_host_net/E2SPF/log_2025-04-18_02-53-44/_epoch_2_0.0285.pth
-/home/haitao/data/web_host_net/E2SPF/log_2025-04-18_02-53-44/_epoch_2_0.0285.pth
-/home/haitao/data/web_host_net/E2SPF/log_2025-04-18_02-53-44/_epoch_2_0.0285.pth
-/home/haitao/data/web_host_net/E2SPF/log_2025-04-18_02-53-44/_epoch_2_0.0285.pth
-/home/haitao/data/web_host_net/E2SPF/log_2025-04-18_02-53-44/_epoch_2_0.0285.pth
-/home/haitao/data/web_host_net/E2SPF/log_2025-04-18_02-53-44/_epoch_2_0.0285.pth
