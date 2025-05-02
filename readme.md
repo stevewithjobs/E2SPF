@@ -16,6 +16,6 @@ first train predict model:
 python train_nstponline.py
 ```
 
-second train decision agengt:
+second train decision agent:
 ```
 python train_rl.py
